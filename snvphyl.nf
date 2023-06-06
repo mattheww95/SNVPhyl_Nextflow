@@ -204,6 +204,9 @@ process SMALT_MAP {
 }
 /* Create BAMs and Sort */
 process SORT_INDEX_BAMS {
+    errorStrategy { sleep(Math.pow(2, task.attempt) * 200 as long); return 'retry' }
+    maxRetries 10
+
     tag {"SORT_INDEX_BAMS ${sample_id}"}
 
     //publishDir "${params.outdir}", mode: 'copy'
@@ -217,6 +220,9 @@ process SORT_INDEX_BAMS {
 
     script:
     """
+    export OPENBLAS_NUM_THREADS=1
+    export OMP_NUM_THREADS=1
+    export GOTO_NUM_THREADS=1
     samtools sort -O bam -o ${sample_id}_sorted.bam ${bams}
     samtools index ${sample_id}_sorted.bam
     """
@@ -263,6 +269,11 @@ process VERIFYING_MAP_Q {
 }
 /* Freebayes variant calling */
 process FREEBAYES {
+
+    //errorStrategy { sleep(Math.pow(2, task.attempt) * 200 as long); return 'retry' }
+    maxRetries 10
+    //maxForks 1
+
     tag {"FREEBAYES ${sample_id}"}
 
     //publishDir "${params.outdir}", mode: 'copy'
@@ -275,11 +286,16 @@ process FREEBAYES {
 
     script:
     """
+    export OPENBLAS_NUM_THREADS=1
+    export OMP_NUM_THREADS=1
+    export GOTO_NUM_THREADS=1
     freebayes --bam ${sorted_bams} --ploidy 1 --fasta-reference ${refgenome} --vcf ${sample_id}_freebayes.vcf 
     """
 }
 /* Mpileup */
 process MPILEUP {
+    errorStrategy { sleep(Math.pow(2, task.attempt) * 200 as long); return 'retry' }
+    maxRetries 10
     tag {"MPILEUP ${sample_id}"}
 
     //publishDir "${params.outdir}", mode: 'copy'
@@ -292,11 +308,16 @@ process MPILEUP {
 
     script:
     """
-    bcftools mpileup --threads 4 --fasta-ref ${refgenome} -A -B -C 0 -d 1024 -q 0 -Q 0 --output-type v -I --output ${sample_id}_mpileup.vcf ${sorted_bams}
+    export OPENBLAS_NUM_THREADS=1
+    export OMP_NUM_THREADS=1
+    export GOTO_NUM_THREADS=1
+    bcftools mpileup --threads 1 --fasta-ref ${refgenome} -A -B -C 0 -d 1024 -q 0 -Q 0 --output-type v -I --output ${sample_id}_mpileup.vcf ${sorted_bams}
     """
 }
 /* Zip mpileup vcf*/
 process BGZIP_MPILEUP_VCF {
+    errorStrategy { sleep(Math.pow(2, task.attempt) * 200 as long); return 'retry' }
+    maxRetries 10
     tag {"BGZIP_MPILEUP_VCF ${sample_id}"}
     label 'process_bgzip'
 
@@ -313,6 +334,8 @@ process BGZIP_MPILEUP_VCF {
 }
 /* Bcftools call  */
 process BCFTOOLS_CALL {
+    errorStrategy { sleep(Math.pow(2, task.attempt) * 200 as long); return 'retry' }
+    maxRetries 10
     tag {"BCFTOOLS_CALL ${sample_id}"}
     label 'process_bcf'
 
@@ -326,8 +349,11 @@ process BCFTOOLS_CALL {
 
     script:
     """
+    export OPENBLAS_NUM_THREADS=1
+    export OMP_NUM_THREADS=1
+    export GOTO_NUM_THREADS=1
     bcftools index -f ${mpileup_vcf_gz}
-    bcftools call --ploidy 1 --threads 4 --output ${sample_id}_mpileup.bcf --output-type b --consensus-caller ${mpileup_vcf_gz}
+    bcftools call --ploidy 1 --threads 1 --output ${sample_id}_mpileup.bcf --output-type b --consensus-caller ${mpileup_vcf_gz}
     """
 }
 /* Filter freebayes vcf */
@@ -345,6 +371,9 @@ process FILTER_FREEBAYES {
 
     script:
     """
+    export OPENBLAS_NUM_THREADS=1
+    export OMP_NUM_THREADS=1
+    export GOTO_NUM_THREADS=1
     filterVcf.pl --noindels ${freebayes_vcf} -o ${sample_id}_freebayes_filtered.vcf
     """
 }
@@ -377,6 +406,9 @@ process FREEBAYES_VCF_TO_BCF {
 
     script:
     """
+    export OPENBLAS_NUM_THREADS=1
+    export OMP_NUM_THREADS=1
+    export GOTO_NUM_THREADS=1
     bcftools index -f ${freebayes_filtered_vcf_gz}
     bcftools view --output-type b --output-file ${sample_id}_freebayes_filtered.bcf ${freebayes_filtered_vcf_gz}
     bcftools index -f ${sample_id}_freebayes_filtered.bcf
@@ -400,6 +432,9 @@ process CONSOLIDATE_BCFS {
 
     script:
     """
+    export OPENBLAS_NUM_THREADS=1
+    export OMP_NUM_THREADS=1
+    export GOTO_NUM_THREADS=1
     consolidate_vcfs.pl --coverage-cutoff 10 --min-mean-mapping 30 --snv-abundance-ratio 0.75 --vcfsplit ${freebayes_filtered_bcf} --mpileup ${mpileup_bcf} --filtered-density-out ${sample_id}_filtered_density.txt --window-size ${params.window_size} --density-threshold ${params.density_threshold} -o ${sample_id}_consolidated.bcf > ${sample_id}_consolidated.vcf
     bcftools index -f ${sample_id}_consolidated.bcf
     """
@@ -461,6 +496,9 @@ process VCF2SNV_ALIGNMENT {
 
     script:
     """
+    export OPENBLAS_NUM_THREADS=1
+    export OMP_NUM_THREADS=1
+    export GOTO_NUM_THREADS=1
     vcf2snv_alignment.pl --reference reference --invalid-pos ${new_invalid_positions} --format fasta --format phylip --numcpus 4 --output-base snvalign --fasta ${refgenome} ${consolidate_bcfs} 
     mv snvalign-positions.tsv snvTable.tsv
     mv snvalign-stats.csv vcf2core.tsv
@@ -487,6 +525,9 @@ process FILTER_STATS {
 
     script:
     """
+    export OPENBLAS_NUM_THREADS=1
+    export OMP_NUM_THREADS=1
+    export GOTO_NUM_THREADS=1
     filter-stats.pl -i ${snvTable} -a > filterStats.txt
     """
 }

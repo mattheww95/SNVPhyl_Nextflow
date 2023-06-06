@@ -72,7 +72,7 @@ Once you have nextflow and singularity installed then get this repo with either:
 To run the pipeline do the following:
 
 ```
-nextflow run snvphyl.nf --outdir ./results -c snvphyl.config --refgenome reference.fasta
+nextflow run snvphyl.nf --outdir ./results -c snvphyl.config --refgenome reference.fasta -profile singularity
 ```
 
 **Make sure to pick an appropriate reference fasta file for your samples!** The one included in this repository is just for example purposes. 

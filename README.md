@@ -1,3 +1,25 @@
+# Changes/Install
+## SMALT container creation
+ The smalt container used in the defualt workflow is part of the DHQP dockerfiles, however the pipeline uses singularity. The **reason** the galaxy smalt image is not used is due to the smalt process also requiring samtools which is not included in that image. You may need to alter the snvphyl.config to include the smalt path after container creation as well. Note: singularity was re-named to apptainer, however the CLI is largely the same between versions
+ 
+ To create the SMALT container, **singularity/apptainer is required** but to create the image it is as simple as running for apptainer:
+ ```
+  apptainer build smalt.sif docker://quay.io/staphb/smalt 
+ ```
+ or for singularity:
+ ```
+ singularity build smalt.sif docker://quay.io/staphb/smalt 
+ ```
+
+## Env Exports
+Within the processes listed in snvphyl.nf, one will notice that the following lines have been added:
+```
+export OPENBLAS_NUM_THREADS=1
+export OMP_NUM_THREADS=1
+export GOTO_NUM_THREADS=1
+```
+This is to limit thread usage on certain processes that would otherwise cause pipeline failure. This may not be the best way specify environment parameters in a process, but it got the job done. Suggestions are welcome however.
+
 # SNVPhyl_Nextflow
 
 This Nextflow version of SNVPhyl is based on the original SNVPhyl pipeline written by Aaron Petkau. For documentation on the pipeline and how it works see the following links. 

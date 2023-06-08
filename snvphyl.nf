@@ -128,7 +128,10 @@ workflow {
     //14. Filter Stats
     FILTER_STATS(VCF2SNV_ALIGNMENT.out.snvTable)
     //15. Using phyml to build tree process takes 1 input channel as an argument
-    PHYML(VCF2SNV_ALIGNMENT.out.snvAlignment)
+    // TODO make iqtree2 and phyml options
+    //PHYML(VCF2SNV_ALIGNMENT.out.snvAlignment)
+    PHYLIP_2_FASTA(VCF2SNV_ALIGNMENT.out.snvAlignment) 
+    IQTREE2(PHYLIP_2_FASTA.out.snvAlignment_fasta)
     //16. Make SNVMatix.tsv
     MAKE_SNV(VCF2SNV_ALIGNMENT.out.snvAlignment)
 }
@@ -532,6 +535,7 @@ process FILTER_STATS {
     """
 }
 /* PHYML to make tree */
+// phyml has a limit of 4000 sequences by default
 process PHYML {
     publishDir "${params.outdir}", mode: 'copy'
 
@@ -543,12 +547,49 @@ process PHYML {
      path 'phylogeneticTreeStats.txt', emit: phylogeneticTreeStats
 
     script:
+    // added no-memory_check
     """
-    phyml -i ${snvAlignment_phy} --datatype nt --model GTR -v 0.0 -s BEST --ts/tv e --nclasses 4 --alpha e --bootstrap -4 --quiet
+    phyml -i ${snvAlignment_phy} --datatype nt --model GTR -v 0.0 -s BEST --ts/tv e --nclasses 4 --alpha e --bootstrap -4 --quiet --no_memory_check
     mv snvAlignment.phy_phyml_stats.txt phylogeneticTreeStats.txt
     mv snvAlignment.phy_phyml_tree.txt phylogeneticTree.newick
     """
 }
+
+process PHYLIP_2_FASTA{
+    publishDir "${params.outdir}", mode: 'copy'
+
+    input:
+     path(snvAlignment_phy)
+
+    output:
+    path ("snvAlignment.fasta"), emit: snvAlignment_fasta
+
+    script:
+    """
+    perl -MBio::AlignIO -e '\$i=Bio::AlignIO->new(-file=>"$snvAlignment_phy", -format=>"phylip");\$o=Bio::AlignIO->new(-file=>">snvAlignment.fasta",-format=>"fasta",-longid=>1);\$a=\$i->next_aln;\$a->set_displayname_flat(1);\$o->write_aln(\$a);'
+    """
+
+}
+
+process IQTREE2{
+    publishDir "${params.outdir}", mode: 'copy'
+    
+    input:
+     path(snvAlignment_phy)
+
+    output:
+        path("${prefix}.phy.iqtree")
+        path("${prefix}.phy.treefile")
+        path("${prefix}.phy.log")
+
+    script:
+    prefix = "snvTree"
+    """
+    iqtree2 -s ${snvAlignment_phy} -m MFP -T $task.cpus --prefix ${prefix}
+    """
+
+}
+
 /* Making SNV matrix */
 process MAKE_SNV {
     label 'process_snvphyl_low'
